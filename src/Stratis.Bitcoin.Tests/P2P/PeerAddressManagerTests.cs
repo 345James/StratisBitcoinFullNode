@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Net;
+using FluentAssertions;
 using NBitcoin.Protocol;
 using Stratis.Bitcoin.P2P;
 using Xunit;
@@ -437,6 +438,109 @@ namespace Stratis.Bitcoin.Tests.P2P
             var resultTwo = peer.Selectability;
 
             Assert.True(resultOne > resultTwo);
+        }
+
+
+        [Fact]
+        public void WhenSelectWhitelistedPeers_AndOnePeerIsActive_ThenPeerIsReturned()
+        {
+            // Arrange.
+            NetworkAddress networkAddress = new NetworkAddress(IPAddress.Parse("::ffff:192.168.0.1"), 80);
+            
+            var peerFolder = AssureEmptyDirAsDataFolder(Path.Combine(AppContext.BaseDirectory, "PeerAddressManager"));
+            var addressManager = new PeerAddressManager(peerFolder);
+            addressManager.AddPeer(networkAddress, IPAddress.Loopback);
+            addressManager.PeerHandshaked(networkAddress.Endpoint, DateTimeOffset.UtcNow);
+
+            // Act.
+            var whiteListPeers = addressManager.SelectWhitelistedPeers();
+
+            // Assert.
+            whiteListPeers.Should().NotBeNull();
+            whiteListPeers.Should().HaveCount(1);
+            whiteListPeers.First().Endpoint.Should().Be(networkAddress.Endpoint);
+        }
+
+        [Fact]
+        private void WhenSelectWhitelistedPeers_AndNoPeersAreActive_ThenNoPeersAreReturned()
+        {
+            // Arrange.
+            var peerFolder = AssureEmptyDirAsDataFolder(Path.Combine(AppContext.BaseDirectory, "PeerAddressManager"));
+            var addressManager = new PeerAddressManager(peerFolder);
+
+            // Act.
+            var whitelistPeers = addressManager.SelectWhitelistedPeers();
+
+            // Assert.
+            whitelistPeers.Should().NotBeNull();
+            whitelistPeers.Should().BeEmpty();
+        }
+
+        [Fact]
+        private void WhenSelectWhitelistedPeers_AndOnePeerOnly_AndPeerIsNotActive_ThenNoPeersAreReturned()
+        {
+            // Arrange.
+            NetworkAddress networkAddress = new NetworkAddress(IPAddress.Parse("::ffff:192.168.0.1"), 80);
+
+            var peerFolder = AssureEmptyDirAsDataFolder(Path.Combine(AppContext.BaseDirectory, "PeerAddressManager"));
+            var addressManager = new PeerAddressManager(peerFolder);
+            addressManager.AddPeer(networkAddress, IPAddress.Loopback);
+            addressManager.PeerHandshaked(networkAddress.Endpoint, DateTimeOffset.UtcNow.AddDays(-1));
+
+            // Act.
+            var whiteListPeers = addressManager.SelectWhitelistedPeers();
+
+            // Assert.
+            whiteListPeers.Should().NotBeNull();
+            whiteListPeers.Should().BeEmpty();
+        }
+
+        [Fact]
+        private void WhenSelectWhitelistedPeers_AndSomeInactive_AndSomeActive_ThenOnlyActivePeersReturned()
+        {
+            // Arrange.
+            var peerFolder = AssureEmptyDirAsDataFolder(Path.Combine(AppContext.BaseDirectory, "PeerAddressManager"));
+            var addressManager = new PeerAddressManager(peerFolder);
+
+            NetworkAddress activeNetworkAddressOne = new NetworkAddress(IPAddress.Parse("::ffff:192.168.0.1"), 80);
+            NetworkAddress activeNetworkAddressTwo = new NetworkAddress(IPAddress.Parse("::ffff:192.168.0.2"), 80);
+            NetworkAddress activeNetworkAddressThree = new NetworkAddress(IPAddress.Parse("::ffff:192.168.0.3"), 80);
+
+            NetworkAddress[] activeNetworkAddresses = { activeNetworkAddressOne, activeNetworkAddressTwo, activeNetworkAddressThree };
+
+            foreach (NetworkAddress activeNetworkAddress in activeNetworkAddresses)
+            {
+                addressManager.AddPeer(activeNetworkAddress, IPAddress.Loopback);
+                addressManager.PeerHandshaked(activeNetworkAddress.Endpoint, DateTimeOffset.UtcNow.AddMinutes(-1));
+            }
+
+            addressManager.AddPeer(activeNetworkAddressThree, IPAddress.Loopback);
+            addressManager.PeerHandshaked(activeNetworkAddressThree.Endpoint, DateTimeOffset.UtcNow);
+            
+            NetworkAddress inactiveNetworkAddressOne = new NetworkAddress(IPAddress.Parse("::ffff:192.168.1.10"), 80);
+            NetworkAddress inactiveNetworkAddressTwo = new NetworkAddress(IPAddress.Parse("::ffff:192.168.1.11"), 80);
+            NetworkAddress inactiveNetworkAddressThree = new NetworkAddress(IPAddress.Parse("::ffff:192.168.1.12"), 80);
+            NetworkAddress inactiveNetworkAddressFour = new NetworkAddress(IPAddress.Parse("::ffff:192.168.1.13"), 80);
+
+            NetworkAddress[] inactiveNetworkAddresses = { inactiveNetworkAddressOne, inactiveNetworkAddressTwo, inactiveNetworkAddressThree, inactiveNetworkAddressFour };
+
+            foreach (NetworkAddress inactiveNetworkAddress in inactiveNetworkAddresses)
+            {
+                addressManager.AddPeer(inactiveNetworkAddress, IPAddress.Loopback);
+                addressManager.PeerHandshaked(inactiveNetworkAddress.Endpoint, DateTimeOffset.UtcNow.AddDays(-1));
+            }
+            
+            // Act.
+            var whiteListPeers = addressManager.SelectWhitelistedPeers();
+
+            // Assert.
+            whiteListPeers.Should().NotBeNull();
+            whiteListPeers.Should().HaveSameCount(activeNetworkAddresses);
+
+            foreach (NetworkAddress activeNetworkAddress in activeNetworkAddresses)
+            {
+                whiteListPeers.Select(n => n.Endpoint).Contains(activeNetworkAddress.Endpoint).Should().BeTrue("the peer with the ip address {0}, should be in the whitelist", activeNetworkAddress.Endpoint);
+            }
         }
     }
 }

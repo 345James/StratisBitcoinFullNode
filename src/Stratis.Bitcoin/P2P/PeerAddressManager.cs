@@ -84,6 +84,12 @@ namespace Stratis.Bitcoin.P2P
         /// </para>
         /// </summary>
         IEnumerable<NetworkAddress> SelectPeersToConnectTo();
+
+        /// <summary>
+        /// Identifies the white list of active peers.
+        /// </summary>
+        /// <returns>The white list.</returns>
+        IEnumerable<NetworkAddress> SelectWhitelistedPeers();
     }
 
     /// <summary>
@@ -93,10 +99,10 @@ namespace Stratis.Bitcoin.P2P
     /// </para>
     /// </summary>
     public sealed class PeerAddressManager : IPeerAddressManager
-    {
+    {   
         /// <inheritdoc />
         public ConcurrentDictionary<IPEndPoint, PeerAddress> Peers { get; private set; }
-
+        
         /// <summary>The file name of the peers file.</summary>
         internal const string PeerFileName = "peers.json";
 
@@ -213,6 +219,23 @@ namespace Stratis.Bitcoin.P2P
         public IEnumerable<NetworkAddress> SelectPeersToConnectTo()
         {
             return this.Peers.Where(p => p.Value.Preferred).Select(p => p.Value.NetworkAddress);
+        }
+
+        /// <inheritdoc />
+        public IEnumerable<NetworkAddress> SelectWhitelistedPeers()
+        {
+            // TODO: Filter peers using the last connection handshake.
+
+            // TODO: change the time limit to be read from config (defaults to 30 seconds)
+            // TODO: modify to use the datetime provider supplied in the constructor (via DI)
+            DateTimeOffset activePeerLimit = DateTimeOffset.UtcNow.AddMinutes(-30);
+
+            var filteredList = this.Peers.Where(p => p.Value.LastConnectionHandshake > activePeerLimit).Select(p => p.Value.NetworkAddress);
+            
+            // TODO: Exclude self from list of peers if running in Full Node mode
+            // TODO: Make sure the whitelist is in a sorted order.
+            // TODO: Return the whilelist in round robin each time.
+            return filteredList;            
         }
 
         internal static int GetRandomInteger(int max)
