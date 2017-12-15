@@ -1,6 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Stratis.Bitcoin.Builder.Feature;
-using Stratis.Bitcoin.P2P;
 using Stratis.Bitcoin.Utilities;
 
 namespace Stratis.Bitcoin.Features.Dns
@@ -13,7 +15,7 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <summary>
         /// Defines the peer address manager.
         /// </summary>
-        private readonly IPeerAddressManager peerAddressManager;
+        private readonly IWhitelistManager whitelistManager;
 
         /// <summary>
         /// Defines the logger.
@@ -21,17 +23,38 @@ namespace Stratis.Bitcoin.Features.Dns
         private readonly ILogger logger;
 
         /// <summary>
+        /// Factory for creating background async loop tasks.
+        /// </summary>
+        private readonly IAsyncLoopFactory asyncLoopFactory;
+
+        /// <summary>
+        /// Global application life cycle control - triggers when application shuts down.
+        /// </summary>
+        private readonly INodeLifetime nodeLifetime;
+
+        /// <summary>
+        /// The async loop to refresh the whitelist.
+        /// </summary>
+        private IAsyncLoop whitelistRefreshLoop;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="DnsFeature"/> class.
         /// </summary>
-        /// <param name="peerAddressManager">The peer address manager.</param>
+        /// <param name="whitelistManager">The whitelist manager.</param>
         /// <param name="loggerFactory">The factory to create the logger.</param>
-        public DnsFeature(IPeerAddressManager peerAddressManager, ILoggerFactory loggerFactory)
+        /// <param name="asyncLoopFactory">The asynchronous loop factory.</param>
+        /// <param name="nodeLifetime">The node lifetime.</param>
+        public DnsFeature(IWhitelistManager whitelistManager, ILoggerFactory loggerFactory, IAsyncLoopFactory asyncLoopFactory, INodeLifetime nodeLifetime)
         {
-            Guard.NotNull(peerAddressManager, nameof(peerAddressManager));
+            Guard.NotNull(whitelistManager, nameof(whitelistManager));
             Guard.NotNull(loggerFactory, nameof(loggerFactory));
+            Guard.NotNull(asyncLoopFactory, nameof(asyncLoopFactory));
+            Guard.NotNull(nodeLifetime, nameof(nodeLifetime));
 
-            this.peerAddressManager = peerAddressManager;
+            this.whitelistManager = whitelistManager;
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
+            this.asyncLoopFactory = asyncLoopFactory;
+            this.nodeLifetime = nodeLifetime;
         }
 
         /// <summary>
@@ -39,8 +62,32 @@ namespace Stratis.Bitcoin.Features.Dns
         /// </summary>
         public override void Initialize()
         {
-            this.logger.LogInformation("Starting DNS");
-            // TODO: add implementation.            
+            this.logger.LogInformation("Starting DNS...");
+
+            this.StartWhitelistRefreshLoop();
+        }
+
+        /// <summary>
+        /// Disposes of the object.
+        /// </summary>
+        public override void Dispose()
+        {
+            this.logger.LogInformation("Stopping DNS...");
+            this.whitelistRefreshLoop?.Dispose();
+        }
+        
+        /// <summary>
+        /// Starts the loop to refresh the whitelist.
+        /// </summary>
+        private void StartWhitelistRefreshLoop()
+        {
+            this.whitelistRefreshLoop = this.asyncLoopFactory.Run($"{nameof(DnsFeature)}.WhitelistRefreshLoop", token =>
+            {
+                this.whitelistManager.RefreshWhitelist();
+                return Task.CompletedTask;
+            },
+           this.nodeLifetime.ApplicationStopping,
+           TimeSpans.TenSeconds);
         }
     }
 }

@@ -17,14 +17,18 @@ namespace Stratis.Bitcoin.Features.Dns
         public static IFullNodeBuilder UseDns(this IFullNodeBuilder fullNodeBuilder)
         {
             LoggingConfiguration.RegisterFeatureNamespace<DnsFeature>("dns");
-            
+
             fullNodeBuilder.ConfigureFeature(features =>
             {
                 features
                 .AddFeature<DnsFeature>()
-                .FeatureServices(services => services.AddSingleton(fullNodeBuilder));
+                .FeatureServices(services =>
+                {
+                    services.AddSingleton(fullNodeBuilder);
+                    services.AddSingleton<IWhitelistManager, WhitelistManager>();
+                });
             });
-           
+
             return fullNodeBuilder;
         }
     }
