@@ -35,7 +35,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             // Act and Assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("loggerFactory");
         }
-        
+
         [Fact]
         [Trait("DNS", "UnitTest")]
         public void WhenConstructorCalled_AndAsyncLoopFactoryIsNull_ThenArgumentNullExceptionIsThrown()
@@ -43,7 +43,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             // Arrange.
             IWhitelistManager whitelistManager = new Mock<IWhitelistManager>().Object;
             ILoggerFactory loggerFactory = new Mock<ILoggerFactory>().Object;
-            
+
             Action a = () => { new DnsFeature(whitelistManager, loggerFactory, null, null); };
 
             // Act and Assert.
@@ -66,7 +66,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
         }
 
         [Fact]
-        [Trait("Dns", "UnitTest")]
+        [Trait("DNS", "UnitTest")]
         public void WhenConstructorCalled_AndAllParametersValid_ThenTypeCreated()
         {
             // Arrange.
@@ -80,6 +80,36 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             // Assert.
             feature.Should().NotBeNull();
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenInitialize_ThenRefreshLoopIsStarted()
+        {
+            // Arrange.
+            Mock<IWhitelistManager> mockWhitelistManager = new Mock<IWhitelistManager>();
+            mockWhitelistManager.Setup(w => w.RefreshWhitelist()).Verifiable("the RefreshWhitelist method should be called on the WhitelistManager");
+
+            IWhitelistManager whitelistManager = mockWhitelistManager.Object;
+
+            Mock<ILogger> mockLogger = new Mock<ILogger>();
+            Mock<ILoggerFactory> mockLoggerFactory = new Mock<ILoggerFactory>();
+            mockLoggerFactory.Setup(l => l.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+            ILoggerFactory loggerFactory = mockLoggerFactory.Object;
+
+            IAsyncLoopFactory asyncLoopFactory = new AsyncLoopFactory(loggerFactory);
+            INodeLifetime nodeLifeTime = new NodeLifetime();
+
+            using (DnsFeature feature = new DnsFeature(whitelistManager, loggerFactory, asyncLoopFactory, nodeLifeTime))
+            {
+                // Act.
+                feature.Initialize();
+                System.Threading.Thread.Sleep(6000);
+                nodeLifeTime.StopApplication();
+
+                // Assert.
+                mockWhitelistManager.Verify();
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using Microsoft.Extensions.Logging;
 using NBitcoin.Protocol;
 using Stratis.Bitcoin.Configuration;
 using Stratis.Bitcoin.P2P;
@@ -15,6 +16,11 @@ namespace Stratis.Bitcoin.Features.Dns
         /// Defines the provider for the datetime.
         /// </summary>
         private readonly IDateTimeProvider dateTimeProvider;
+
+        /// <summary>
+        /// Defines the logger.
+        /// </summary>
+        private readonly ILogger logger;
 
         /// <summary>
         /// Defines the manager implementation for peer addresses used to populate the whitelist.
@@ -45,23 +51,25 @@ namespace Stratis.Bitcoin.Features.Dns
         /// Initializes a new instance of the <see cref="WhitelistManager"/> class.
         /// </summary>
         /// <param name="dateTimeProvider">The provider for datetime.</param>
+        /// <param name="loggerFactory">The factory to create the logger.</param>
         /// <param name="peerAddressManager">The manager implementation for peer addresses.</param>
         /// <param name="nodeSettings">The node settings.</param>
-        public WhitelistManager(IDateTimeProvider dateTimeProvider, IPeerAddressManager peerAddressManager, NodeSettings nodeSettings)
+        public WhitelistManager(IDateTimeProvider dateTimeProvider, ILoggerFactory loggerFactory, IPeerAddressManager peerAddressManager, NodeSettings nodeSettings)
         {
             Guard.NotNull(dateTimeProvider, nameof(dateTimeProvider));
+            Guard.NotNull(loggerFactory, nameof(loggerFactory));
             Guard.NotNull(peerAddressManager, nameof(peerAddressManager));
             Guard.NotNull(nodeSettings, nameof(nodeSettings));
             Guard.NotNull(nodeSettings.ConnectionManager, nameof(nodeSettings.ConnectionManager));
 
             this.dateTimeProvider = dateTimeProvider;
+            this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
             this.peerAddressManager = peerAddressManager;
             this.activePeerPeriodInSeconds = nodeSettings.DnsActivePeerThresholdInSeconds;
             this.externalEndpoint = nodeSettings.ConnectionManager.ExternalEndpoint;
+            this.fullNodeMode = nodeSettings.DnsFullNode;
 
-            this.Whitelist = new List<PeerAddress>();
-
-            // TODO: Add in code to set the flag indicating if the node is running DNS only or not.
+            this.Whitelist = new List<PeerAddress>();            
         }
 
         /// <summary>
@@ -69,6 +77,8 @@ namespace Stratis.Bitcoin.Features.Dns
         /// </summary>
         public void RefreshWhitelist()
         {
+            this.logger.LogTrace("()");
+
             DateTimeOffset activePeerLimit = this.dateTimeProvider.GetTimeOffset().AddSeconds(-this.activePeerPeriodInSeconds);
 
             var whitelist = this.peerAddressManager.Peers.Where(p => p.Value.LastConnectionHandshake > activePeerLimit).Select(p => p.Value);
@@ -81,6 +91,8 @@ namespace Stratis.Bitcoin.Features.Dns
 
             // TODO: change this to swap out the whitelist master file in DNS.
             this.Whitelist = whitelist;
+
+            this.logger.LogTrace("(-)");
         }
     }
 }

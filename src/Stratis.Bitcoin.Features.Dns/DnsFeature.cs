@@ -62,9 +62,12 @@ namespace Stratis.Bitcoin.Features.Dns
         /// </summary>
         public override void Initialize()
         {
-            this.logger.LogInformation("Starting DNS...");
+            this.logger.LogTrace("()");
 
+            this.logger.LogInformation("Starting DNS...");
             this.StartWhitelistRefreshLoop();
+
+            this.logger.LogTrace("(-)");
         }
 
         /// <summary>
@@ -72,22 +75,31 @@ namespace Stratis.Bitcoin.Features.Dns
         /// </summary>
         public override void Dispose()
         {
+            this.logger.LogTrace("()");
+
             this.logger.LogInformation("Stopping DNS...");
             this.whitelistRefreshLoop?.Dispose();
+            this.whitelistRefreshLoop = null;
+
+            this.logger.LogTrace("(-)");
         }
-        
+
         /// <summary>
         /// Starts the loop to refresh the whitelist.
         /// </summary>
         private void StartWhitelistRefreshLoop()
         {
+            this.logger.LogTrace("()");
+
             this.whitelistRefreshLoop = this.asyncLoopFactory.Run($"{nameof(DnsFeature)}.WhitelistRefreshLoop", token =>
             {
                 this.whitelistManager.RefreshWhitelist();
                 return Task.CompletedTask;
             },
-           this.nodeLifetime.ApplicationStopping,
-           TimeSpans.TenSeconds);
+            this.nodeLifetime.ApplicationStopping,
+            repeatEvery: TimeSpans.TenSeconds);
+
+            this.logger.LogTrace("(-)");
         }
     }
 }

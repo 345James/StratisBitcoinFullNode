@@ -131,6 +131,12 @@ namespace Stratis.Bitcoin.Configuration
         /// <summary>The value which a peer should have last have been connected to be deeemed as active for DNS nodes.</summary>
         public int DnsActivePeerThresholdInSeconds { get; set; }
 
+        /// <summary><c>true</c> if the DNS Seed service should also run as a full node, otherwise <c>false</c>.</summary>
+        public bool DnsFullNode { get; set; }
+
+        /// <summary>Defines the port that the DNS server will listen on, by default this is 53.</summary>
+        public int DnsListenPort { get; set; }
+
         /// <summary>
         /// Initializes default configuration.
         /// </summary>
@@ -234,6 +240,12 @@ namespace Stratis.Bitcoin.Configuration
 
             this.DnsActivePeerThresholdInSeconds = config.GetOrDefault("dnspeeractivethreshold", DefaultDnsActivePeerLimitInSeconds);
             this.Logger.LogDebug("DnsPeerActiveThreshold set to {0}.", this.DnsActivePeerThresholdInSeconds);
+
+            if (args.Contains("-dnsfullnode", StringComparer.CurrentCultureIgnoreCase))
+            {
+                this.DnsFullNode = true;
+                this.Logger.LogDebug("DNS Seed Service is set to run as a full node, if running as DNS Seed.", this.DnsListenPort);
+            }
 
             try
             {
@@ -461,26 +473,26 @@ namespace Stratis.Bitcoin.Configuration
                 builder.AppendLine();
                 builder.AppendLine("Command line arguments:");
                 builder.AppendLine();
-                builder.AppendLine($"-help/--help              Show this help.");
-                builder.AppendLine($"-conf=<Path>              Path to the configuration file. Default {defaults.ConfigurationFile}.");
-                builder.AppendLine($"-datadir=<Path>           Path to the data directory. Default {defaults.DataDir}.");
-                builder.AppendLine($"-testnet                  Use the testnet chain.");
-                builder.AppendLine($"-regtest                  Use the regtestnet chain.");
-                builder.AppendLine($"-acceptnonstdtxn=<0 or 1> Accept non-standard transactions. Default {defaults.RequireStandard}.");
-                builder.AppendLine($"-maxtipage=<number>       Max tip age. Default {DefaultMaxTipAge}.");
-                builder.AppendLine($"-connect=<ip:port>        Specified node to connect to. Can be specified multiple times.");
-                builder.AppendLine($"-addnode=<ip:port>        Add a node to connect to and attempt to keep the connection open. Can be specified multiple times.");
-                builder.AppendLine($"-whitebind=<ip:port>      Bind to given address and whitelist peers connecting to it. Use [host]:port notation for IPv6. Can be specified multiple times.");
-                builder.AppendLine($"-externalip=<ip>          Specify your own public address.");
-                builder.AppendLine($"-synctime=<0 or 1>        Sync with peers. Default 1.");
-                builder.AppendLine($"-checkpoints=<0 or 1>     Use checkpoints. Default 1.");
-                builder.AppendLine($"-mintxfee=<number>        Minimum fee rate. Defaults to network specific value.");
-                builder.AppendLine($"-fallbackfee=<number>     Fallback fee rate. Defaults to network specific value.");
-                builder.AppendLine($"-minrelaytxfee=<number>   Minimum relay fee rate. Defaults to network specific value.");
-                builder.AppendLine($"-bantime=<number>         Number of seconds to keep misbehaving peers from reconnecting (Default 24-hour ban).");
-                builder.AppendLine($"-assumevalid=<hex>        If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification(0 to verify all). Defaults to network specific value.");
-                builder.AppendLine($"-dnsactivepeerthreshold=<number>  The maximum number of seconds that a peer must have last been seen to be deemed as active for DNS. Default {DefaultDnsActivePeerLimitInSeconds}");
-
+                builder.AppendLine($"-help/--help                      Show this help.");
+                builder.AppendLine($"-conf=<Path>                      Path to the configuration file. Default {defaults.ConfigurationFile}.");
+                builder.AppendLine($"-datadir=<Path>                   Path to the data directory. Default {defaults.DataDir}.");
+                builder.AppendLine($"-testnet                          Use the testnet chain.");
+                builder.AppendLine($"-regtest                          Use the regtestnet chain.");
+                builder.AppendLine($"-acceptnonstdtxn=<0 or 1>         Accept non-standard transactions. Default {defaults.RequireStandard}.");
+                builder.AppendLine($"-maxtipage=<number>               Max tip age. Default {DefaultMaxTipAge}.");
+                builder.AppendLine($"-connect=<ip:port>                Specified node to connect to. Can be specified multiple times.");
+                builder.AppendLine($"-addnode=<ip:port>                Add a node to connect to and attempt to keep the connection open. Can be specified multiple times.");
+                builder.AppendLine($"-whitebind=<ip:port>              Bind to given address and whitelist peers connecting to it. Use [host]:port notation for IPv6. Can be specified multiple times.");
+                builder.AppendLine($"-externalip=<ip>                  Specify your own public address.");
+                builder.AppendLine($"-synctime=<0 or 1>                Sync with peers. Default 1.");
+                builder.AppendLine($"-checkpoints=<0 or 1>             Use checkpoints. Default 1.");
+                builder.AppendLine($"-mintxfee=<number>                Minimum fee rate. Defaults to network specific value.");
+                builder.AppendLine($"-fallbackfee=<number>             Fallback fee rate. Defaults to network specific value.");
+                builder.AppendLine($"-minrelaytxfee=<number>           Minimum relay fee rate. Defaults to network specific value.");
+                builder.AppendLine($"-bantime=<number>                 Number of seconds to keep misbehaving peers from reconnecting (Default 24-hour ban).");
+                builder.AppendLine($"-assumevalid=<hex>                If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification(0 to verify all). Defaults to network specific value.");
+                builder.AppendLine($"-dnsactivepeerthreshold=<number>  The maximum number of seconds that a peer must have last been seen to be deemed as active for DNS. Default {DefaultDnsActivePeerLimitInSeconds}");                
+                
                 defaults.Logger.LogInformation(builder.ToString());
 
                 return true;
