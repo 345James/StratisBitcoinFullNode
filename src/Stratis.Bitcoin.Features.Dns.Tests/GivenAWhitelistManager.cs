@@ -158,7 +158,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             IPeerAddressManager peerAddressManager = this.CreateTestPeerAddressManager(testDataSet);
             NodeSettings nodeSettings = NodeSettings.Default();
-            nodeSettings.DnsActivePeerThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
 
@@ -228,7 +228,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             Network network = Network.StratisTest;
             NodeSettings nodeSettings = new NodeSettings(network.Name, network).LoadArguments(args);
-            nodeSettings.DnsActivePeerThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
             nodeSettings.DnsFullNode = false;
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
@@ -300,7 +300,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             Network network = Network.StratisTest;
             NodeSettings nodeSettings = new NodeSettings(network.Name, network).LoadArguments(args);
             nodeSettings.DnsFullNode = true;
-            nodeSettings.DnsActivePeerThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
 
@@ -321,7 +321,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
         [Fact]
         [Trait("DNS", "UnitTest")]
-        public void WhenRefreshWhitelist_AndInactivePeersInWhitelist_ThenWhitelistDoesNotContainInActivePeers()
+        public void WhenRefreshWhitelist_AndInactivePeersInWhitelist_ThenWhitelistDoesNotContainInactivePeers()
         {
             // Arrange.
             Mock<IDateTimeProvider> mockDateTimeProvider = new Mock<IDateTimeProvider>();
@@ -358,7 +358,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             IPeerAddressManager peerAddressManager = this.CreateTestPeerAddressManager(testDataSet);
             NodeSettings nodeSettings = NodeSettings.Default();
-            nodeSettings.DnsActivePeerThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
 

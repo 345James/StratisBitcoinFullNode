@@ -33,7 +33,7 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <summary>
         /// Defines the peroid in seconds that the peer should last have been seen to be included in the whitelist.
         /// </summary>
-        private readonly int activePeerPeriodInSeconds;
+        private readonly int dnsPeerBlacklistThresholdInSeconds;
 
         /// <summary>
         /// Defines the external endpoint for the dns node.
@@ -68,7 +68,7 @@ namespace Stratis.Bitcoin.Features.Dns
             this.dateTimeProvider = dateTimeProvider;
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
             this.peerAddressManager = peerAddressManager;
-            this.activePeerPeriodInSeconds = nodeSettings.DnsActivePeerThresholdInSeconds;
+            this.dnsPeerBlacklistThresholdInSeconds = nodeSettings.DnsPeerBlacklistThresholdInSeconds;
             this.externalEndpoint = nodeSettings.ConnectionManager.ExternalEndpoint;
             this.fullNodeMode = nodeSettings.DnsFullNode;
 
@@ -82,7 +82,7 @@ namespace Stratis.Bitcoin.Features.Dns
         {
             this.logger.LogTrace("()");
 
-            DateTimeOffset activePeerLimit = this.dateTimeProvider.GetTimeOffset().AddSeconds(-this.activePeerPeriodInSeconds);
+            DateTimeOffset activePeerLimit = this.dateTimeProvider.GetTimeOffset().AddSeconds(-this.dnsPeerBlacklistThresholdInSeconds);
 
             var whitelist = this.peerAddressManager.Peers.Where(p => p.Value.LastConnectionHandshake > activePeerLimit).Select(p => p.Value);
 

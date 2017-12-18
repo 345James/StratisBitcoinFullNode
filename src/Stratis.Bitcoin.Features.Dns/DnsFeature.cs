@@ -13,7 +13,12 @@ namespace Stratis.Bitcoin.Features.Dns
     public class DnsFeature : FullNodeFeature
     {
         /// <summary>
-        /// Defines the peer address manager.
+        /// Defines a flag used to indicate whether the object has been disposed or not.
+        /// </summary>
+        private bool disposed = false;
+
+        /// <summary>
+        /// Defines the whitelist manager.
         /// </summary>
         private readonly IWhitelistManager whitelistManager;
 
@@ -75,15 +80,30 @@ namespace Stratis.Bitcoin.Features.Dns
         /// </summary>
         public override void Dispose()
         {
-            this.logger.LogTrace("()");
-
             this.logger.LogInformation("Stopping DNS...");
-            this.whitelistRefreshLoop?.Dispose();
-            this.whitelistRefreshLoop = null;
 
-            this.logger.LogTrace("(-)");
+            this.Dispose(true);
+            GC.SuppressFinalize(this);            
         }
 
+        /// <summary>
+        /// Disposes of the object.
+        /// </summary>
+        /// <param name="disposing"><c>true</c> if the object is being disposed of deterministically, otherwise <c>false</c>.
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!this.disposed)
+            {
+                if (disposing)
+                {
+                    IDisposable disposablewhitelistRefreshLoop = this.whitelistRefreshLoop as IDisposable;
+                    disposablewhitelistRefreshLoop?.Dispose();
+                }
+
+                this.disposed = true;
+            }
+        }
+        
         /// <summary>
         /// Starts the loop to refresh the whitelist.
         /// </summary>
@@ -97,7 +117,7 @@ namespace Stratis.Bitcoin.Features.Dns
                 return Task.CompletedTask;
             },
             this.nodeLifetime.ApplicationStopping,
-            repeatEvery: TimeSpans.TenSeconds);
+            repeatEvery: new TimeSpan(0, 0, 30));
 
             this.logger.LogTrace("(-)");
         }

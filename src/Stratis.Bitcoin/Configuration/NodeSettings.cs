@@ -38,8 +38,8 @@ namespace Stratis.Bitcoin.Configuration
         /// <summary>Default value for Maximum tip age in seconds to consider node in initial block download.</summary>
         public const int DefaultMaxTipAge = 24 * 60 * 60;
         
-        /// <summary>The default value which a peer should have last have been connected to be deeemed as active for DNS nodes.</summary>
-        public const int DefaultDnsActivePeerLimitInSeconds = 1800;
+        /// <summary>The default value which a peer should have last have been connected before being blacklisted in DNS nodes.</summary>
+        public const int DefaultDnsPeerBlacklistThresholdInSeconds = 1800;
 
         /// <summary>
         /// Initializes a new instance of the object.
@@ -128,8 +128,8 @@ namespace Stratis.Bitcoin.Configuration
         /// <summary><c>true</c> to sync time with other peers and calculate adjusted time, <c>false</c> to use our system clock only.</summary>
         public bool SyncTimeEnabled { get; set; }
 
-        /// <summary>The value which a peer should have last have been connected to be deeemed as active for DNS nodes.</summary>
-        public int DnsActivePeerThresholdInSeconds { get; set; }
+        /// <summary>The value which a peer should have last have been connected before being blacklisted from the DNS nodes.</summary>
+        public int DnsPeerBlacklistThresholdInSeconds { get; set; }
 
         /// <summary><c>true</c> if the DNS Seed service should also run as a full node, otherwise <c>false</c>.</summary>
         public bool DnsFullNode { get; set; }
@@ -238,8 +238,8 @@ namespace Stratis.Bitcoin.Configuration
             this.SyncTimeEnabled = config.GetOrDefault<bool>("synctime", true);
             this.Logger.LogDebug("Time synchronization with peers is {0}.", this.SyncTimeEnabled ? "enabled" : "disabled");
 
-            this.DnsActivePeerThresholdInSeconds = config.GetOrDefault("dnspeeractivethreshold", DefaultDnsActivePeerLimitInSeconds);
-            this.Logger.LogDebug("DnsPeerActiveThreshold set to {0}.", this.DnsActivePeerThresholdInSeconds);
+            this.DnsPeerBlacklistThresholdInSeconds = config.GetOrDefault("dnspeerblacklistthresholdinseconds", DefaultDnsPeerBlacklistThresholdInSeconds);
+            this.Logger.LogDebug("DnsPeerBlacklistThresholdInSeconds set to {0}.", this.DnsPeerBlacklistThresholdInSeconds);
 
             if (args.Contains("-dnsfullnode", StringComparer.CurrentCultureIgnoreCase))
             {
