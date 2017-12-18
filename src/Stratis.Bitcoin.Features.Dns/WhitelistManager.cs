@@ -10,6 +10,9 @@ using Stratis.Bitcoin.Utilities;
 
 namespace Stratis.Bitcoin.Features.Dns
 {
+    /// <summary>
+    /// Responsible for managing the whitelist used by the DNS server as a master file.
+    /// </summary>
     public class WhitelistManager : IWhitelistManager
     {
         /// <summary>
@@ -38,7 +41,7 @@ namespace Stratis.Bitcoin.Features.Dns
         private readonly IPEndPoint externalEndpoint;
 
         /// <summary>
-        /// Defines if the node full node <c>true</c> or not <c>false</c>.
+        /// Defines if DNS server daemon is running as full node <c>true</c> or not <c>false</c>.
         /// </summary>
         private readonly bool fullNodeMode = false;
 
