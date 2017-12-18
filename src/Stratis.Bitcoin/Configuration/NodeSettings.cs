@@ -129,7 +129,7 @@ namespace Stratis.Bitcoin.Configuration
         public bool SyncTimeEnabled { get; set; }
 
         /// <summary>The value which a peer should have last have been connected to be deeemed as active for DNS nodes.</summary>
-        public int DnsActivePeerLimitInSeconds { get; set; }
+        public int DnsActivePeerThresholdInSeconds { get; set; }
 
         /// <summary>
         /// Initializes default configuration.
@@ -232,8 +232,8 @@ namespace Stratis.Bitcoin.Configuration
             this.SyncTimeEnabled = config.GetOrDefault<bool>("synctime", true);
             this.Logger.LogDebug("Time synchronization with peers is {0}.", this.SyncTimeEnabled ? "enabled" : "disabled");
 
-            this.DnsActivePeerLimitInSeconds = config.GetOrDefault("dnspeeractivelimit", DefaultDnsActivePeerLimitInSeconds);
-            this.Logger.LogDebug("DnsPeerActiveLimit set to {0}.", this.DnsActivePeerLimitInSeconds);
+            this.DnsActivePeerThresholdInSeconds = config.GetOrDefault("dnspeeractivethreshold", DefaultDnsActivePeerLimitInSeconds);
+            this.Logger.LogDebug("DnsPeerActiveThreshold set to {0}.", this.DnsActivePeerThresholdInSeconds);
 
             try
             {
@@ -479,7 +479,7 @@ namespace Stratis.Bitcoin.Configuration
                 builder.AppendLine($"-minrelaytxfee=<number>   Minimum relay fee rate. Defaults to network specific value.");
                 builder.AppendLine($"-bantime=<number>         Number of seconds to keep misbehaving peers from reconnecting (Default 24-hour ban).");
                 builder.AppendLine($"-assumevalid=<hex>        If this block is in the chain assume that it and its ancestors are valid and potentially skip their script verification(0 to verify all). Defaults to network specific value.");
-                builder.AppendLine($"-dnsactivepeerlimit=<number>  The maximum number of seconds that a peer must have last been seen to be deemed as active for DNS. Default {DefaultDnsActivePeerLimitInSeconds}");
+                builder.AppendLine($"-dnsactivepeerthreshold=<number>  The maximum number of seconds that a peer must have last been seen to be deemed as active for DNS. Default {DefaultDnsActivePeerLimitInSeconds}");
 
                 defaults.Logger.LogInformation(builder.ToString());
 

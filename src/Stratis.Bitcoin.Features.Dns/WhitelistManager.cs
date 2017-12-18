@@ -39,7 +39,7 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <summary>
         /// TODO: This will be removed after the DNS object is managed by this class.
         /// </summary>
-        public IEnumerable<PeerAddress> Whitelist { get; private set;}
+        public IEnumerable<PeerAddress> Whitelist { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WhitelistManager"/> class.
@@ -56,7 +56,7 @@ namespace Stratis.Bitcoin.Features.Dns
 
             this.dateTimeProvider = dateTimeProvider;
             this.peerAddressManager = peerAddressManager;
-            this.activePeerPeriodInSeconds = nodeSettings.DnsActivePeerLimitInSeconds;
+            this.activePeerPeriodInSeconds = nodeSettings.DnsActivePeerThresholdInSeconds;
             this.externalEndpoint = nodeSettings.ConnectionManager.ExternalEndpoint;
 
             this.Whitelist = new List<PeerAddress>();
@@ -69,14 +69,14 @@ namespace Stratis.Bitcoin.Features.Dns
         /// </summary>
         public void RefreshWhitelist()
         {
-            DateTimeOffset activePeerLimit = this.dateTimeProvider.GetUtcNow().AddSeconds(this.activePeerPeriodInSeconds);
-            
+            DateTimeOffset activePeerLimit = this.dateTimeProvider.GetTimeOffset().AddSeconds(-this.activePeerPeriodInSeconds);
+
             var whitelist = this.peerAddressManager.Peers.Where(p => p.Value.LastConnectionHandshake > activePeerLimit).Select(p => p.Value);
 
-            if(!this.fullNodeMode)
+            if (!this.fullNodeMode)
             {
                 // Exclude the current external ip address from DNS as its not a full node.
-                whitelist = whitelist.Where(p => p.NetworkAddress.Endpoint != this.externalEndpoint);
+                whitelist = whitelist.Where(p => !p.NetworkAddress.Endpoint.Match(this.externalEndpoint));
             }
 
             // TODO: change this to swap out the whitelist master file in DNS.
