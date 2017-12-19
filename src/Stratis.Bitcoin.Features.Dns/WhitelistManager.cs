@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using DNS.Protocol.ResourceRecords;
 using Microsoft.Extensions.Logging;
-using NBitcoin.Protocol;
 using Stratis.Bitcoin.Configuration;
 using Stratis.Bitcoin.P2P;
 using Stratis.Bitcoin.Utilities;
@@ -42,6 +39,11 @@ namespace Stratis.Bitcoin.Features.Dns
         private readonly int dnsPeerBlacklistThresholdInSeconds;
 
         /// <summary>
+        /// Defines the DNS host name of the DNS Server.
+        /// </summary>
+        private readonly string dnsHostName;
+
+        /// <summary>
         /// Defines the external endpoint for the dns node.
         /// </summary>
         private readonly IPEndPoint externalEndpoint;
@@ -66,6 +68,7 @@ namespace Stratis.Bitcoin.Features.Dns
             Guard.NotNull(peerAddressManager, nameof(peerAddressManager));
             Guard.NotNull(dnsServer, nameof(dnsServer));
             Guard.NotNull(nodeSettings, nameof(nodeSettings));
+            Guard.NotNull(nodeSettings.DnsHostName, nameof(nodeSettings.DnsHostName));
             Guard.NotNull(nodeSettings.ConnectionManager, nameof(nodeSettings.ConnectionManager));
 
             this.dateTimeProvider = dateTimeProvider;
@@ -73,6 +76,7 @@ namespace Stratis.Bitcoin.Features.Dns
             this.peerAddressManager = peerAddressManager;
             this.dnsServer = dnsServer;
             this.dnsPeerBlacklistThresholdInSeconds = nodeSettings.DnsPeerBlacklistThresholdInSeconds;
+            this.dnsHostName = nodeSettings.DnsHostName;
             this.externalEndpoint = nodeSettings.ConnectionManager.ExternalEndpoint;
             this.fullNodeMode = nodeSettings.DnsFullNode;
         }
@@ -97,8 +101,7 @@ namespace Stratis.Bitcoin.Features.Dns
             IMasterFile masterFile = new DnsSeedMasterFile();
             foreach(PeerAddress whitelistEntry in whitelist)
             {
-                // TODO: test.com needs to be read from the command line (node settings).
-                masterFile.AddIPAddressResourceRecord("test.com", whitelistEntry.NetworkAddress.Endpoint.Address.ToString());
+                masterFile.AddIPAddressResourceRecord(this.dnsHostName, whitelistEntry.NetworkAddress.Endpoint.Address.ToString());
             }
             
             this.dnsServer.SwapMasterfile(masterFile);

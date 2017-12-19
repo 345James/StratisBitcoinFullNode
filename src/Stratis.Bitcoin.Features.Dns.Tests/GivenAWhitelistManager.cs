@@ -95,6 +95,23 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
         [Fact]
         [Trait("DNS", "UnitTest")]
+        public void WhenConstructorCalled_AndNodeSettingsDnsHostNameIsNull_ThenArgumentNullExceptionIsThrown()
+        {
+            // Arrange.
+            IDateTimeProvider dateTimeProvider = new Mock<IDateTimeProvider>().Object;
+            ILoggerFactory loggerFactory = new Mock<ILoggerFactory>().Object;
+            IPeerAddressManager peerAddressManager = new Mock<IPeerAddressManager>().Object;
+            IDnsServer dnsServer = new Mock<IDnsServer>().Object;
+            NodeSettings nodeSettings = NodeSettings.Default();
+            
+            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, dnsServer, nodeSettings); };
+
+            // Act and Assert.
+            a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("DnsHostName");
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
         public void WhenConstructorCalled_AndNodeSettingsConnectionManagerIsNull_ThenArgumentNullExceptionIsThrown()
         {
             // Arrange.
@@ -103,6 +120,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             IPeerAddressManager peerAddressManager = new Mock<IPeerAddressManager>().Object;
             IDnsServer dnsServer = new Mock<IDnsServer>().Object;
             NodeSettings nodeSettings = NodeSettings.Default();
+            nodeSettings.DnsHostName = "stratis.test.com";
             nodeSettings.ConnectionManager = null;
 
             Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, dnsServer, nodeSettings); };
@@ -161,6 +179,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             NodeSettings nodeSettings = NodeSettings.Default();
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsHostName = "stratis.test.com";
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
@@ -170,7 +189,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             // Assert.
             spiedMasterFile.Should().NotBeNull();
 
-            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            Question question = new Question(new Domain(nodeSettings.DnsHostName), RecordType.AAAA);
             IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
             resourceRecords.Should().NotBeNullOrEmpty();
 
@@ -245,6 +264,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             Network network = Network.StratisTest;
             NodeSettings nodeSettings = new NodeSettings(network.Name, network).LoadArguments(args);
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsHostName = "stratis.test.com";
             nodeSettings.DnsFullNode = false;
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
@@ -255,7 +275,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             // Assert.
             spiedMasterFile.Should().NotBeNull();
 
-            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            Question question = new Question(new Domain(nodeSettings.DnsHostName), RecordType.AAAA);
             IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
             resourceRecords.Should().NotBeNullOrEmpty();
 
@@ -330,6 +350,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             NodeSettings nodeSettings = new NodeSettings(network.Name, network).LoadArguments(args);
             nodeSettings.DnsFullNode = true;
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsHostName = "stratis.test.com";
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
@@ -339,7 +360,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             // Assert.
             spiedMasterFile.Should().NotBeNull();
 
-            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            Question question = new Question(new Domain(nodeSettings.DnsHostName), RecordType.AAAA);
             IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
             resourceRecords.Should().NotBeNullOrEmpty();
 
@@ -418,6 +439,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             NodeSettings nodeSettings = NodeSettings.Default();
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
+            nodeSettings.DnsHostName = "stratis.test.com";
 
             WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
@@ -426,8 +448,8 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             
             // Assert.
             spiedMasterFile.Should().NotBeNull();
-            
-            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+
+            Question question = new Question(new Domain(nodeSettings.DnsHostName), RecordType.AAAA);
             IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
             resourceRecords.Should().NotBeNullOrEmpty();
             

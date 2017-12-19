@@ -131,12 +131,15 @@ namespace Stratis.Bitcoin.Configuration
         /// <summary>The value which a peer should have last have been connected before being blacklisted from the DNS nodes.</summary>
         public int DnsPeerBlacklistThresholdInSeconds { get; set; }
 
+        /// <summary>Defines the host name for the node when running as a DNS Seed service.</summary>
+        public string DnsHostName { get; set; }
+
         /// <summary><c>true</c> if the DNS Seed service should also run as a full node, otherwise <c>false</c>.</summary>
         public bool DnsFullNode { get; set; }
 
         /// <summary>Defines the port that the DNS server will listen on, by default this is 53.</summary>
         public int DnsListenPort { get; set; }
-
+        
         /// <summary>
         /// Initializes default configuration.
         /// </summary>
@@ -240,6 +243,12 @@ namespace Stratis.Bitcoin.Configuration
 
             this.DnsPeerBlacklistThresholdInSeconds = config.GetOrDefault("dnspeerblacklistthresholdinseconds", DefaultDnsPeerBlacklistThresholdInSeconds);
             this.Logger.LogDebug("DnsPeerBlacklistThresholdInSeconds set to {0}.", this.DnsPeerBlacklistThresholdInSeconds);
+
+            if (args.Contains("-dnshostname", StringComparer.CurrentCultureIgnoreCase))
+            {
+                this.DnsHostName = config.GetOrDefault("dnshostname", string.Empty);
+                this.Logger.LogDebug("DnsHostName set to {0}.", this.DnsHostName);
+            }
 
             if (args.Contains("-dnsfullnode", StringComparer.CurrentCultureIgnoreCase))
             {
