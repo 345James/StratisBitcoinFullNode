@@ -5,7 +5,6 @@ using System.Net;
 using System.Text.RegularExpressions;
 using DNS.Protocol;
 using DNS.Protocol.ResourceRecords;
-using Newtonsoft.Json;
 
 namespace Stratis.Bitcoin.Features.Dns
 {
@@ -41,16 +40,14 @@ namespace Stratis.Bitcoin.Features.Dns
         }
 
         /// <summary>
-        /// The resource record entries in the master file.
-        /// </summary>
-        [JsonProperty]
-        private IList<IResourceRecord> entries = new List<IResourceRecord>();
-
-        /// <summary>
         /// The default time to live.
         /// </summary>
-        [JsonProperty]
         private TimeSpan ttl = DEFAULT_TTL;
+
+        /// <summary>
+        /// The resource record entries in the master file.
+        /// </summary>
+        protected IList<IResourceRecord> entries = new List<IResourceRecord>();
 
         /// <summary>
         /// Initializes a new instance of a <see cref="MasterFile"/> class.

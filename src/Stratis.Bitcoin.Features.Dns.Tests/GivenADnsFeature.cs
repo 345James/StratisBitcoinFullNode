@@ -2,7 +2,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Stratis.Bitcoin.P2P;
 using Stratis.Bitcoin.Utilities;
 using Xunit;
 

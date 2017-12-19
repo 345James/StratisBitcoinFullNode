@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Net;
+using DNS.Protocol;
 using DNS.Protocol.ResourceRecords;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Stratis.Bitcoin.Features.Dns
 {
@@ -16,7 +19,7 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <returns><c>True</c> if the object can be converted otherwise returns false.</returns>
         public override bool CanConvert(Type objectType)
         {
-            return (objectType == typeof(IPAddressResourceRecord));
+            return (objectType == typeof(IPAddressResourceRecord) || objectType == typeof(IResourceRecord));
         }
         
         /// <summary>
@@ -29,9 +32,13 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <returns>The object value.</returns>
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            return serializer.Deserialize(reader, typeof(IPAddressResourceRecord));
-        }
+            JObject jObject = JObject.Load(reader);
+            IPAddress ipaddress = IPAddress.Parse(jObject["IPAddress"].Value<string>());
+            Domain domain = new Domain(jObject["Name"].Value<string>());
 
+            return new IPAddressResourceRecord(domain, ipaddress);
+        }
+        
         /// <summary>
         /// Writes the JSON representation of the object.
         /// </summary>
@@ -40,7 +47,14 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <param name="serializer">The calling serializer.</param>
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
-            serializer.Serialize(writer, value, typeof(IPAddressResourceRecord));
+            IPAddressResourceRecord resourceRecord = (IPAddressResourceRecord)value;
+            JObject jObject = new JObject
+            {
+                { "IPAddress", resourceRecord.IPAddress.ToString() },
+                { "Name", resourceRecord.Name.ToString()}
+            };
+
+            jObject.WriteTo(writer);
         }
     }
 }
