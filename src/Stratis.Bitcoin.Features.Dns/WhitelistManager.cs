@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using DNS.Protocol.ResourceRecords;
 using Microsoft.Extensions.Logging;
 using NBitcoin.Protocol;
 using Stratis.Bitcoin.Configuration;
@@ -31,6 +32,11 @@ namespace Stratis.Bitcoin.Features.Dns
         private readonly IPeerAddressManager peerAddressManager;
 
         /// <summary>
+        /// Defines the DNS server.
+        /// </summary>
+        private readonly IDnsServer dnsServer;
+
+        /// <summary>
         /// Defines the peroid in seconds that the peer should last have been seen to be included in the whitelist.
         /// </summary>
         private readonly int dnsPeerBlacklistThresholdInSeconds;
@@ -46,33 +52,29 @@ namespace Stratis.Bitcoin.Features.Dns
         private readonly bool fullNodeMode = false;
 
         /// <summary>
-        /// TODO: This will be removed after the DNS object is managed by this class.
-        /// </summary>
-        public IEnumerable<PeerAddress> Whitelist { get; private set; }
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="WhitelistManager"/> class.
         /// </summary>
         /// <param name="dateTimeProvider">The provider for datetime.</param>
         /// <param name="loggerFactory">The factory to create the logger.</param>
         /// <param name="peerAddressManager">The manager implementation for peer addresses.</param>
+        /// <param name="dnsServer">The DNS server.</param>
         /// <param name="nodeSettings">The node settings.</param>
-        public WhitelistManager(IDateTimeProvider dateTimeProvider, ILoggerFactory loggerFactory, IPeerAddressManager peerAddressManager, NodeSettings nodeSettings)
+        public WhitelistManager(IDateTimeProvider dateTimeProvider, ILoggerFactory loggerFactory, IPeerAddressManager peerAddressManager, IDnsServer dnsServer, NodeSettings nodeSettings)
         {
             Guard.NotNull(dateTimeProvider, nameof(dateTimeProvider));
             Guard.NotNull(loggerFactory, nameof(loggerFactory));
             Guard.NotNull(peerAddressManager, nameof(peerAddressManager));
+            Guard.NotNull(dnsServer, nameof(dnsServer));
             Guard.NotNull(nodeSettings, nameof(nodeSettings));
             Guard.NotNull(nodeSettings.ConnectionManager, nameof(nodeSettings.ConnectionManager));
 
             this.dateTimeProvider = dateTimeProvider;
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
             this.peerAddressManager = peerAddressManager;
+            this.dnsServer = dnsServer;
             this.dnsPeerBlacklistThresholdInSeconds = nodeSettings.DnsPeerBlacklistThresholdInSeconds;
             this.externalEndpoint = nodeSettings.ConnectionManager.ExternalEndpoint;
             this.fullNodeMode = nodeSettings.DnsFullNode;
-
-            this.Whitelist = new List<PeerAddress>();            
         }
 
         /// <summary>
@@ -92,8 +94,14 @@ namespace Stratis.Bitcoin.Features.Dns
                 whitelist = whitelist.Where(p => !p.NetworkAddress.Endpoint.Match(this.externalEndpoint));
             }
 
-            // TODO: change this to swap out the whitelist master file in DNS.
-            this.Whitelist = whitelist;
+            IMasterFile masterFile = new DnsSeedMasterFile();
+            foreach(PeerAddress whitelistEntry in whitelist)
+            {
+                // TODO: test.com needs to be read from the command line (node settings).
+                masterFile.AddIPAddressResourceRecord("test.com", whitelistEntry.NetworkAddress.Endpoint.Address.ToString());
+            }
+            
+            this.dnsServer.SwapMasterfile(masterFile);
 
             this.logger.LogTrace("(-)");
         }

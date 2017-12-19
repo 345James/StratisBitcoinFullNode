@@ -1,9 +1,12 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using DNS.Protocol;
+using DNS.Protocol.ResourceRecords;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -26,7 +29,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
         public void WhenConstructorCalled_AndDatetimeProviderIsNull_ThenArgumentNullExceptionIsThrown()
         {
             // Arrange.
-            Action a = () => { new WhitelistManager(null, null, null, null); };
+            Action a = () => { new WhitelistManager(null, null, null, null, null); };
 
             // Act and Assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("dateTimeProvider");
@@ -39,7 +42,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             // Arrange.
             IDateTimeProvider dateTimeProvider = new Mock<IDateTimeProvider>().Object;
             
-            Action a = () => { new WhitelistManager(dateTimeProvider, null, null, null); };
+            Action a = () => { new WhitelistManager(dateTimeProvider,null, null, null, null); };
 
             // Act and Assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("loggerFactory");
@@ -53,10 +56,25 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             IDateTimeProvider dateTimeProvider = new Mock<IDateTimeProvider>().Object;
             ILoggerFactory loggerFactory = new Mock<ILoggerFactory>().Object;
 
-            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, null, null); };
+            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, null, null, null); };
 
             // Act and Assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("peerAddressManager");
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenConstructorCalled_AndDnsServerIsNull_ThenArgumentNullExceptionIsThrown()
+        {
+            // Arrange.
+            IDateTimeProvider dateTimeProvider = new Mock<IDateTimeProvider>().Object;
+            ILoggerFactory loggerFactory = new Mock<ILoggerFactory>().Object;
+            IPeerAddressManager peerAddressManager = new Mock<IPeerAddressManager>().Object;
+
+            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, null, null); };
+
+            // Act and Assert.
+            a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("dnsServer");
         }
 
         [Fact]
@@ -67,8 +85,9 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             IDateTimeProvider dateTimeProvider = new Mock<IDateTimeProvider>().Object;
             ILoggerFactory loggerFactory = new Mock<ILoggerFactory>().Object;
             IPeerAddressManager peerAddressManager = new Mock<IPeerAddressManager>().Object;
+            IDnsServer dnsServer = new Mock<IDnsServer>().Object;
 
-            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, null); };
+            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, dnsServer, null); };
 
             // Act and Assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("nodeSettings");
@@ -82,10 +101,11 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             IDateTimeProvider dateTimeProvider = new Mock<IDateTimeProvider>().Object;
             ILoggerFactory loggerFactory = new Mock<ILoggerFactory>().Object;
             IPeerAddressManager peerAddressManager = new Mock<IPeerAddressManager>().Object;
+            IDnsServer dnsServer = new Mock<IDnsServer>().Object;
             NodeSettings nodeSettings = NodeSettings.Default();
             nodeSettings.ConnectionManager = null;
 
-            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings); };
+            Action a = () => { new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, dnsServer, nodeSettings); };
 
             // Act and Assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("ConnectionManager");
@@ -93,35 +113,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
         [Fact]
         [Trait("DNS", "UnitTest")]
-        public void WhenRefreshWhitelist_AndNoPeersAvailable_ThenWhiteListIsEmpty()
-        {
-            // Arrange.
-            IDateTimeProvider dateTimeProvider = new DateTimeProvider();
-
-            Mock<ILogger> mockLogger = new Mock<ILogger>();
-            Mock<ILoggerFactory> mockLoggerFactory = new Mock<ILoggerFactory>();
-            mockLoggerFactory.Setup(l => l.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
-            ILoggerFactory loggerFactory = mockLoggerFactory.Object;
-
-            Mock<IPeerAddressManager> mockPeerAddressManager = new Mock<IPeerAddressManager>();
-            mockPeerAddressManager.Setup(p => p.Peers).Returns(new ConcurrentDictionary<System.Net.IPEndPoint, PeerAddress>());
-
-            NodeSettings nodeSettings = NodeSettings.Default();
-
-            // Act.
-            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, mockPeerAddressManager.Object, nodeSettings);
-            whitelistManager.RefreshWhitelist();
-
-            IEnumerable<PeerAddress> whitelist = whitelistManager.Whitelist;
-
-            // Assert.
-            whitelist.Should().NotBeNull();
-            whitelist.Should().BeEmpty();
-        }
-
-        [Fact]
-        [Trait("DNS", "UnitTest")]
-        public void WenRefreshWhitelist_AndActivePeersAvailable_ThenWhitelistContainsActivePeers()
+        public void WhenRefreshWhitelist_AndActivePeersAvailable_ThenWhitelistContainsActivePeers()
         {
             // Arrange.
             Mock<IDateTimeProvider> mockDateTimeProvider = new Mock<IDateTimeProvider>();
@@ -157,22 +149,37 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             };
 
             IPeerAddressManager peerAddressManager = this.CreateTestPeerAddressManager(testDataSet);
+
+            IMasterFile spiedMasterFile = null;
+            Mock<IDnsServer> mockDnsServer = new Mock<IDnsServer>();
+            mockDnsServer.Setup(d => d.SwapMasterfile(It.IsAny<IMasterFile>()))
+                .Callback<IMasterFile>(m =>
+                {
+                    spiedMasterFile = m;
+                })
+                .Verifiable();
+
             NodeSettings nodeSettings = NodeSettings.Default();
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
 
-            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
+            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
             // Act.
             whitelistManager.RefreshWhitelist();
 
             // Assert.
-            IEnumerable<PeerAddress> whitelist = whitelistManager.Whitelist;
-            whitelist.Should().NotBeNullOrEmpty();
-            whitelist.Should().HaveSameCount(testDataSet);
+            spiedMasterFile.Should().NotBeNull();
+
+            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+            ipAddressResourceRecords.Should().HaveSameCount(testDataSet);
 
             foreach (Tuple<NetworkAddress, DateTimeOffset> testData in testDataSet)
             {
-                whitelist.SingleOrDefault(w => w.NetworkAddress.Endpoint.Match(testData.Item1.Endpoint)).Should().NotBeNull("the peer should be in the whitelist as it is active");
+                ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(testData.Item1.Endpoint.Address)).Should().NotBeNull();
             }
         }
 
@@ -226,29 +233,42 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
                 $"-port={externalPort.ToString()}",
             };
 
+            IMasterFile spiedMasterFile = null;
+            Mock<IDnsServer> mockDnsServer = new Mock<IDnsServer>();
+            mockDnsServer.Setup(d => d.SwapMasterfile(It.IsAny<IMasterFile>()))
+                .Callback<IMasterFile>(m =>
+                {
+                    spiedMasterFile = m;
+                })
+                .Verifiable();
+
             Network network = Network.StratisTest;
             NodeSettings nodeSettings = new NodeSettings(network.Name, network).LoadArguments(args);
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
             nodeSettings.DnsFullNode = false;
 
-            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
+            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
             // Act.
             whitelistManager.RefreshWhitelist();
 
             // Assert.
-            IEnumerable<PeerAddress> whitelist = whitelistManager.Whitelist;
-            whitelist.Should().NotBeNullOrEmpty();
-            whitelist.Should().HaveSameCount(activeTestDataSet);
+            spiedMasterFile.Should().NotBeNull();
 
-            // Active peers.
+            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+            ipAddressResourceRecords.Should().HaveSameCount(activeTestDataSet);
+
             foreach (Tuple<NetworkAddress, DateTimeOffset> testData in activeTestDataSet)
             {
-                whitelist.SingleOrDefault(w => w.NetworkAddress.Endpoint.Match(testData.Item1.Endpoint)).Should().NotBeNull("the peer should be in the whitelist as it is active");
+                ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(testData.Item1.Endpoint.Address)).Should().NotBeNull();
             }
 
             // External IP.
-            whitelist.SingleOrDefault(w => w.NetworkAddress.Endpoint.Match(externalNetworkAddress.Endpoint)).Should().BeNull("the external IP peer should not be in the whitelist as it is inactive");
+            ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(externalNetworkAddress.Endpoint)).Should().BeNull("the external IP peer should not be in DNS as not running full node.");            
         }
 
         [Fact]
@@ -297,25 +317,38 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
                 $"-port={externalPort.ToString()}",
             };
 
+            IMasterFile spiedMasterFile = null;
+            Mock<IDnsServer> mockDnsServer = new Mock<IDnsServer>();
+            mockDnsServer.Setup(d => d.SwapMasterfile(It.IsAny<IMasterFile>()))
+                .Callback<IMasterFile>(m =>
+                {
+                    spiedMasterFile = m;
+                })
+                .Verifiable();
+
             Network network = Network.StratisTest;
             NodeSettings nodeSettings = new NodeSettings(network.Name, network).LoadArguments(args);
             nodeSettings.DnsFullNode = true;
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
 
-            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
+            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
             // Act.
             whitelistManager.RefreshWhitelist();
 
             // Assert.
-            IEnumerable<PeerAddress> whitelist = whitelistManager.Whitelist;
-            whitelist.Should().NotBeNullOrEmpty();
-            whitelist.Should().HaveSameCount(activeTestDataSet);
+            spiedMasterFile.Should().NotBeNull();
 
-            // Active peers.
+            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+            ipAddressResourceRecords.Should().HaveSameCount(activeTestDataSet);
+
             foreach (Tuple<NetworkAddress, DateTimeOffset> testData in activeTestDataSet)
             {
-                whitelist.SingleOrDefault(w => w.NetworkAddress.Endpoint.Match(testData.Item1.Endpoint)).Should().NotBeNull("the peer should be in the whitelist as it is active");
+                ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(testData.Item1.Endpoint.Address)).Should().NotBeNull();
             }            
         }
 
@@ -347,8 +380,8 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             IPAddress activeIpAddressFour = IPAddress.Parse("::ffff:192.168.0.4");
             NetworkAddress activeNetworkAddressFour = new NetworkAddress(activeIpAddressFour, 80);
-
-            List<Tuple<NetworkAddress, DateTimeOffset>> testDataSet = new List<Tuple<NetworkAddress, DateTimeOffset>>()
+            
+            List<Tuple<NetworkAddress, DateTimeOffset>> activeTestDataSet = new List<Tuple<NetworkAddress, DateTimeOffset>>()
             {
                 new Tuple<NetworkAddress, DateTimeOffset> (activeNetworkAddressOne,  dateTimeProvider.GetTimeOffset().AddSeconds(-inactiveTimePeriod).AddSeconds(10)),
                 new Tuple<NetworkAddress, DateTimeOffset>(activeNetworkAddressTwo, dateTimeProvider.GetTimeOffset().AddSeconds(-inactiveTimePeriod).AddSeconds(20)),
@@ -356,23 +389,59 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
                 new Tuple<NetworkAddress, DateTimeOffset>(activeNetworkAddressFour, dateTimeProvider.GetTimeOffset().AddSeconds(-inactiveTimePeriod).AddSeconds(40))
             };
 
-            IPeerAddressManager peerAddressManager = this.CreateTestPeerAddressManager(testDataSet);
+            IPAddress inactiveIpAddressOne = IPAddress.Parse("::ffff:192.168.100.1");
+            NetworkAddress inactiveNetworkAddressOne = new NetworkAddress(inactiveIpAddressOne, 80);
+
+            IPAddress inactiveIpAddressTwo = IPAddress.Parse("::ffff:192.168.100.2");
+            NetworkAddress inactiveNetworkAddressTwo = new NetworkAddress(inactiveIpAddressTwo, 80);
+
+            IPAddress inactiveIpAddressThree = IPAddress.Parse("::ffff:192.168.100.3");
+            NetworkAddress inactiveNetworkAddressThree = new NetworkAddress(inactiveIpAddressThree, 80);
+
+            List<Tuple<NetworkAddress, DateTimeOffset>> inactiveTestDataSet = new List<Tuple<NetworkAddress, DateTimeOffset>>()
+            {
+                new Tuple<NetworkAddress, DateTimeOffset> (inactiveNetworkAddressOne,  dateTimeProvider.GetTimeOffset().AddSeconds(-inactiveTimePeriod).AddSeconds(-10)),
+                new Tuple<NetworkAddress, DateTimeOffset>(inactiveNetworkAddressTwo, dateTimeProvider.GetTimeOffset().AddSeconds(-inactiveTimePeriod).AddSeconds(-20)),
+                new Tuple<NetworkAddress, DateTimeOffset>(inactiveNetworkAddressThree, dateTimeProvider.GetTimeOffset().AddSeconds(-inactiveTimePeriod).AddSeconds(-30))                
+            };
+
+            IPeerAddressManager peerAddressManager = this.CreateTestPeerAddressManager(activeTestDataSet.Concat(inactiveTestDataSet).ToList());
+
+            IMasterFile spiedMasterFile = null;
+            Mock<IDnsServer> mockDnsServer = new Mock<IDnsServer>();
+            mockDnsServer.Setup(d => d.SwapMasterfile(It.IsAny<IMasterFile>()))
+                .Callback<IMasterFile>(m =>
+                {
+                    spiedMasterFile = m;
+                })
+                .Verifiable();
+
             NodeSettings nodeSettings = NodeSettings.Default();
             nodeSettings.DnsPeerBlacklistThresholdInSeconds = inactiveTimePeriod;
 
-            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, nodeSettings);
+            WhitelistManager whitelistManager = new WhitelistManager(dateTimeProvider, loggerFactory, peerAddressManager, mockDnsServer.Object, nodeSettings);
 
             // Act.
             whitelistManager.RefreshWhitelist();
-
+            
             // Assert.
-            IEnumerable<PeerAddress> whitelist = whitelistManager.Whitelist;
-            whitelist.Should().NotBeNullOrEmpty();
-            whitelist.Should().HaveSameCount(testDataSet);
+            spiedMasterFile.Should().NotBeNull();
+            
+            Question question = new Question(new Domain("test.com"), RecordType.AAAA);
+            IList<IResourceRecord> resourceRecords = spiedMasterFile.Get(question);
+            resourceRecords.Should().NotBeNullOrEmpty();
+            
+            IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+            ipAddressResourceRecords.Should().HaveSameCount(activeTestDataSet);
 
-            foreach (Tuple<NetworkAddress, DateTimeOffset> testData in testDataSet)
+            foreach (Tuple<NetworkAddress, DateTimeOffset> testData in activeTestDataSet)
             {
-                whitelist.SingleOrDefault(w => w.NetworkAddress.Endpoint.Match(testData.Item1.Endpoint)).Should().NotBeNull("the peer should be in the whitelist as it is active");
+                ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(testData.Item1.Endpoint.Address)).Should().NotBeNull("the ip address is active and should be in DNS");                
+            }
+
+            foreach (Tuple<NetworkAddress, DateTimeOffset> testData in inactiveTestDataSet)
+            {
+                ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(testData.Item1.Endpoint.Address)).Should().BeNull("the ip address is inactive and should not be returned from DNS");
             }
         }
 
