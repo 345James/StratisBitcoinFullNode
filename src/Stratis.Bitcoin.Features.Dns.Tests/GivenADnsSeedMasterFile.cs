@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using DNS.Protocol;
 using DNS.Protocol.ResourceRecords;
@@ -24,7 +25,6 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
             var settings = new Newtonsoft.Json.JsonSerializerSettings();
             settings.Converters.Add(new IPAddressResourceRecordConverter());
             settings.Formatting = Formatting.Indented;
-            settings.TypeNameHandling = TypeNameHandling.All;
 
             return JsonSerializer.Create(settings);
         }
@@ -45,33 +45,48 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
         [Trait("DNS", "UnitTest")]
         public void WhenLoad_AndStreamContainsEntries_ThenEntriesArePopulated()
         {
-            string domainName = "stratis.test.com";
-
+            // Arrange.
             using (MemoryStream stream = new MemoryStream())
             {
-                IList<IPAddressResourceRecord> resourceRecords = new List<IPAddressResourceRecord>()
+                string domainName = "stratis.test.com";
+                DnsSeedMasterFile masterFile = new DnsSeedMasterFile();
+
+                IList<IPAddressResourceRecord> testResourceRecords = new List<IPAddressResourceRecord>()
                 {
-                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("::ffff:192.168.0.1")),
-                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("::ffff:192.168.0.2")),
-                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("::ffff:192.168.0.3")),
-                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("::ffff:192.168.0.4"))
+                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("192.168.0.1")),
+                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("192.168.0.2")),
+                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("192.168.0.3")),
+                    new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("192.168.0.4"))
                 };
-                
+
                 JsonSerializer serializer = this.CreateSerializer();
-                
+
                 using (var sw = new StreamWriter(stream))
                 using (var jsonTextWriter = new JsonTextWriter(sw))
                 {
-                    serializer.Serialize(jsonTextWriter, resourceRecords);
+                    serializer.Serialize(jsonTextWriter, testResourceRecords);
 
                     jsonTextWriter.Flush();
                     stream.Seek(0, SeekOrigin.Begin);
-
-                    DnsSeedMasterFile masterFile = new DnsSeedMasterFile();
+                    
+                    // Act.
                     masterFile.Load(stream);
                 }
 
-                // TODO: Add in the asserts to check the 2 lists match.
+                // Assert.
+                Domain domain = new Domain(domainName);
+                Question question = new Question(domain, RecordType.A);
+
+                IList<IResourceRecord> resourceRecords = masterFile.Get(question);
+                resourceRecords.Should().NotBeNullOrEmpty();
+
+                IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+                ipAddressResourceRecords.Should().HaveSameCount(testResourceRecords);
+
+                foreach (IPAddressResourceRecord testResourceRecord in testResourceRecords)
+                {
+                    ipAddressResourceRecords.SingleOrDefault(i => i.IPAddress.Equals(testResourceRecord.IPAddress)).Should().NotBeNull();
+                }
             }
         }
 
@@ -79,7 +94,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
         [Trait("DNS", "UnitTest")]
         public void WhenSave_AndStreamContainsEntries_ThenEntriesAreSaved()
         {
-            // TODO: Add implementation.
+            // TODO:
         }
 
         [Fact]

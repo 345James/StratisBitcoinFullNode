@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
+using DNS.Protocol;
 using DNS.Protocol.ResourceRecords;
 using Newtonsoft.Json;
 using Stratis.Bitcoin.Utilities;
@@ -10,9 +13,60 @@ namespace Stratis.Bitcoin.Features.Dns
     /// <summary>
     /// This class defines a DNS masterfile used to cache the whitelisted peers discovered by the DNS Seed service that supports saving
     /// and loading from a stream.
+    /// This is based on 3rd party library https://github.com/kapetan/dns.
     /// </summary>
-    public class DnsSeedMasterFile : MasterFile, IMasterFile
+    public class DnsSeedMasterFile : IMasterFile
     {
+        /// <summary>
+        /// Sets the default ttl.
+        /// </summary>
+        private static readonly TimeSpan DEFAULT_TTL = new TimeSpan(0);
+        
+        /// <summary>
+        /// The default time to live.
+        /// </summary>
+        private TimeSpan ttl = DEFAULT_TTL;
+
+        /// <summary>
+        /// The resource record entries in the master file.
+        /// </summary>
+        protected IList<IResourceRecord> entries = new List<IResourceRecord>();
+
+        /// <summary>
+        /// Initializes a new instance of a <see cref="DnsSeedMasterFile"/> class.
+        /// </summary>
+        /// <param name="ttl">The time to live.</param>
+        public DnsSeedMasterFile(TimeSpan ttl)
+        {
+            this.ttl = ttl;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of a <see cref="DnsSeedMasterFile"/> class.
+        /// </summary>
+        public DnsSeedMasterFile() { }
+        
+        /// <summary>
+        /// Identifies if the domain matches the entry.
+        /// </summary>
+        /// <param name="domain">The domain to match.</param>
+        /// <param name="entry">The entry to match.</param>
+        /// <returns><c>True</c> if there is a match, otherwise <c>false</c>.</returns>
+        private static bool Matches(Domain domain, Domain entry)
+        {
+            string[] labels = entry.ToString().Split('.');
+            string[] patterns = new string[labels.Length];
+
+            for (int i = 0; i < labels.Length; i++)
+            {
+                string label = labels[i];
+                patterns[i] = label == "*" ? "(\\w+)" : Regex.Escape(label);
+            }
+
+            Regex re = new Regex("^" + string.Join("\\.", patterns) + "$");
+            return re.IsMatch(domain.ToString());
+        }
+
         /// <summary>
         /// Creates the serializer for loading and saving the master file contents.
         /// </summary>
@@ -22,9 +76,38 @@ namespace Stratis.Bitcoin.Features.Dns
             var settings = new Newtonsoft.Json.JsonSerializerSettings();
             settings.Converters.Add(new IPAddressResourceRecordConverter());
             settings.Formatting = Formatting.Indented;
-            settings.TypeNameHandling = TypeNameHandling.All;
-
+            
             return JsonSerializer.Create(settings);
+        }
+
+        /// <summary>
+        /// Adds a entry to the master file.
+        /// </summary>
+        /// <param name="entry">The resource record to add.</param>
+        public void Add(IResourceRecord entry)
+        {
+            this.entries.Add(entry);
+        }
+
+        /// <summary>
+        /// Gets a list of matching <see cref="IResourceRecord"/> objects.
+        /// </summary>
+        /// <param name="domain">The domain to match on.</param>
+        /// <param name="type">The type to match on.</param>
+        /// <returns>The matching entries.</returns>
+        public IList<IResourceRecord> Get(Domain domain, RecordType type)
+        {
+            return this.entries.Where(e => Matches(domain, e.Name) && e.Type == type).ToList();
+        }
+
+        /// <summary>
+        /// Gets a list of matching <see cref="IResourceRecord"/> objects.
+        /// </summary>
+        /// <param name="question">The <see cref="Question"/>used to match on.</param>
+        /// <returns>The matching entries.</returns>
+        public IList<IResourceRecord> Get(Question question)
+        {
+            return this.Get(question.Name, question.Type);
         }
 
         /// <summary>
@@ -40,7 +123,7 @@ namespace Stratis.Bitcoin.Features.Dns
                 JsonSerializer serializer = this.CreateSerializer();                
                 List<IPAddressResourceRecord> ipAddressResourceRecords = serializer.Deserialize<List<IPAddressResourceRecord>>(textReader);
 
-                base.entries = ipAddressResourceRecords.ToList<IResourceRecord>();
+                this.entries = ipAddressResourceRecords.ToList<IResourceRecord>();
             }
         }
 
@@ -54,7 +137,7 @@ namespace Stratis.Bitcoin.Features.Dns
 
             using (JsonTextWriter textWriter = new JsonTextWriter(new StreamWriter(stream)))
             {
-                JsonSerializer serializer = this.CreateSerializer();
+                JsonSerializer serializer = this.CreateSerializer();    
                 
                 serializer.Serialize(textWriter, this.entries.OfType<IPAddressResourceRecord>());
                 textWriter.Flush();

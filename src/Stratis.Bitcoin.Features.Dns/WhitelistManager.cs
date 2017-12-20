@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 using System.Net;
+using DNS.Protocol;
+using DNS.Protocol.ResourceRecords;
 using Microsoft.Extensions.Logging;
 using Stratis.Bitcoin.Configuration;
 using Stratis.Bitcoin.P2P;
@@ -101,7 +103,10 @@ namespace Stratis.Bitcoin.Features.Dns
             IMasterFile masterFile = new DnsSeedMasterFile();
             foreach(PeerAddress whitelistEntry in whitelist)
             {
-                masterFile.AddIPAddressResourceRecord(this.dnsHostName, whitelistEntry.NetworkAddress.Endpoint.Address.ToString());
+                Domain domain = new Domain(this.dnsHostName);
+                
+                IPAddressResourceRecord resourceRecord = new IPAddressResourceRecord(domain, whitelistEntry.NetworkAddress.Endpoint.Address);
+                masterFile.Add(resourceRecord);
             }
             
             this.dnsServer.SwapMasterfile(masterFile);

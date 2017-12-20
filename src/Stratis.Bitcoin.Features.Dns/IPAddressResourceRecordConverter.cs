@@ -19,7 +19,7 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <returns><c>True</c> if the object can be converted otherwise returns false.</returns>
         public override bool CanConvert(Type objectType)
         {
-            return (objectType == typeof(IPAddressResourceRecord) || objectType == typeof(IResourceRecord));
+            return (objectType == typeof(IPAddressResourceRecord));
         }
         
         /// <summary>

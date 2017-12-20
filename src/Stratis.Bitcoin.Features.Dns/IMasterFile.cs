@@ -11,12 +11,11 @@ namespace Stratis.Bitcoin.Features.Dns
     public interface IMasterFile
     {
         /// <summary>
-        /// Adds an IP resource record to the masterfile.
+        /// Adds a entry to the master file.
         /// </summary>
-        /// <param name="domain">The domain for the resource record.</param>
-        /// <param name="domain">The ip address for the resource record.</param>
-        void AddIPAddressResourceRecord(string domain, string ip);
-        
+        /// <param name="entry">The resource record to add.</param>
+        void Add(IResourceRecord entry);
+
         /// <summary>
         /// Gets a list of resource records that match the question.
         /// </summary>
