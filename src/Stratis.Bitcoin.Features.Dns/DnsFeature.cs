@@ -8,7 +8,7 @@ using Stratis.Bitcoin.Utilities;
 namespace Stratis.Bitcoin.Features.Dns
 {
     /// <summary>
-    /// Responsible for managing the Dns feature.
+    /// Responsible for managing the DNS feature.
     /// </summary>
     public class DnsFeature : FullNodeFeature
     {
@@ -63,7 +63,7 @@ namespace Stratis.Bitcoin.Features.Dns
         }
 
         /// <summary>
-        /// Initializes the Dns feature.
+        /// Initializes the DNS feature.
         /// </summary>
         public override void Initialize()
         {
@@ -89,7 +89,7 @@ namespace Stratis.Bitcoin.Features.Dns
         /// <summary>
         /// Disposes of the object.
         /// </summary>
-        /// <param name="disposing"><c>true</c> if the object is being disposed of deterministically, otherwise <c>false</c>.
+        /// <param name="disposing"><c>true</c> if the object is being disposed of deterministically, otherwise <c>false</c>.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (!this.disposed)
