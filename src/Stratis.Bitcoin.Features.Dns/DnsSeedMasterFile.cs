@@ -133,13 +133,11 @@ namespace Stratis.Bitcoin.Features.Dns
         {
             Guard.NotNull(stream, nameof(stream));
 
-            using (JsonTextWriter textWriter = new JsonTextWriter(new StreamWriter(stream)))
-            {
-                JsonSerializer serializer = this.CreateSerializer();    
-                
-                serializer.Serialize(textWriter, this.entries);
-                textWriter.Flush();
-            }
+            JsonTextWriter textWriter = new JsonTextWriter(new StreamWriter(stream));
+            JsonSerializer serializer = this.CreateSerializer();
+
+            serializer.Serialize(textWriter, this.entries);
+            textWriter.Flush();
         }
     }
 }
