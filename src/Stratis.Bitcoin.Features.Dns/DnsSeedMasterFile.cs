@@ -74,7 +74,7 @@ namespace Stratis.Bitcoin.Features.Dns
         private JsonSerializer CreateSerializer()
         {
             var settings = new Newtonsoft.Json.JsonSerializerSettings();
-            settings.Converters.Add(new IPAddressResourceRecordConverter());
+            settings.Converters.Add(new ResourceRecordConverter());
             settings.Formatting = Formatting.Indented;
             
             return JsonSerializer.Create(settings);
@@ -121,9 +121,7 @@ namespace Stratis.Bitcoin.Features.Dns
             using (JsonTextReader textReader = new JsonTextReader(new StreamReader(stream)))
             {
                 JsonSerializer serializer = this.CreateSerializer();                
-                List<IPAddressResourceRecord> ipAddressResourceRecords = serializer.Deserialize<List<IPAddressResourceRecord>>(textReader);
-
-                this.entries = ipAddressResourceRecords.ToList<IResourceRecord>();
+                this.entries = serializer.Deserialize<List<IResourceRecord>>(textReader);
             }
         }
 
@@ -139,7 +137,7 @@ namespace Stratis.Bitcoin.Features.Dns
             {
                 JsonSerializer serializer = this.CreateSerializer();    
                 
-                serializer.Serialize(textWriter, this.entries.OfType<IPAddressResourceRecord>());
+                serializer.Serialize(textWriter, this.entries);
                 textWriter.Flush();
             }
         }

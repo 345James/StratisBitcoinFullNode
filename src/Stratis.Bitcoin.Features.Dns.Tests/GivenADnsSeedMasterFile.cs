@@ -16,19 +16,6 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
     /// </summary>
     public class GivenADnsSeedMasterFile
     {
-        /// <summary>
-        /// Creates the serializer for loading and saving the master file contents.
-        /// </summary>
-        /// <returns></returns>
-        private JsonSerializer CreateSerializer()
-        {
-            var settings = new Newtonsoft.Json.JsonSerializerSettings();
-            settings.Converters.Add(new IPAddressResourceRecordConverter());
-            settings.Formatting = Formatting.Indented;
-
-            return JsonSerializer.Create(settings);
-        }
-
         [Fact]
         [Trait("DNS", "UnitTest")]
         public void WhenLoad_AndStreamIsNull_ThenArgumentNullExceptionIsThrown()
@@ -43,6 +30,199 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
         [Fact]
         [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsIPAddressResourceRecord_AndIsIPv4_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+            
+            IPAddressResourceRecord testResourceRecord = new IPAddressResourceRecord(domain, IPAddress.Parse("192.168.0.1"));
+            Question question = new Question(domain, RecordType.A);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+            ipAddressResourceRecords.Should().HaveCount(1);
+            ipAddressResourceRecords[0].Name.ToString().Should().Be(domain.ToString());
+            ipAddressResourceRecords[0].IPAddress.Equals(testResourceRecord.IPAddress);
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsIPAddressResourceRecord_AndIsIPv6_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+
+            IPAddressResourceRecord testResourceRecord = new IPAddressResourceRecord(domain, IPAddress.Parse("2001:db8:85a3:0:0:8a2e:370:7334"));
+            Question question = new Question(domain, RecordType.AAAA);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<IPAddressResourceRecord> ipAddressResourceRecords = resourceRecords.OfType<IPAddressResourceRecord>().ToList();
+            ipAddressResourceRecords.Should().HaveCount(1);
+            ipAddressResourceRecords[0].Name.ToString().Should().Be(domain.ToString());
+            ipAddressResourceRecords[0].IPAddress.Equals(testResourceRecord.IPAddress);
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsCanonicalNameResourceRecord_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+            Domain cNameDomain = new Domain("www.stratis.test.com");
+
+            CanonicalNameResourceRecord testResourceRecord = new CanonicalNameResourceRecord(domain, cNameDomain);
+            Question question = new Question(domain, RecordType.CNAME);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<CanonicalNameResourceRecord> canonicalResourceRecords = resourceRecords.OfType<CanonicalNameResourceRecord>().ToList();
+            canonicalResourceRecords.Should().HaveCount(1);
+            canonicalResourceRecords[0].Name.ToString().Should().Be(domain.ToString());
+            canonicalResourceRecords[0].CanonicalDomainName.ToString().Should().Be(testResourceRecord.CanonicalDomainName.ToString());
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsMailExchangeResourceRecord_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+            Domain exchangeDomain = new Domain("mail.stratis.test.com");
+            int preference = 10;
+            
+            MailExchangeResourceRecord testResourceRecord = new MailExchangeResourceRecord(domain, preference, exchangeDomain);
+
+            Question question = new Question(domain, RecordType.MX);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<MailExchangeResourceRecord> mailExchangeResourceRecords = resourceRecords.OfType<MailExchangeResourceRecord>().ToList();
+            mailExchangeResourceRecords.Should().HaveCount(1);
+            mailExchangeResourceRecords[0].Name.ToString().Should().Be(domain.ToString());
+            mailExchangeResourceRecords[0].ExchangeDomainName.ToString().Should().Be(testResourceRecord.ExchangeDomainName.ToString());
+            mailExchangeResourceRecords[0].Preference.Should().Be(preference);
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsNameServerResourceRecord_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+            Domain nsDomain = new Domain("ns");
+
+            NameServerResourceRecord testResourceRecord = new NameServerResourceRecord(domain, nsDomain);
+
+            Question question = new Question(domain, RecordType.NS);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<NameServerResourceRecord> nameServerResourceRecord = resourceRecords.OfType<NameServerResourceRecord>().ToList();
+            nameServerResourceRecord.Should().HaveCount(1);
+            nameServerResourceRecord[0].Name.ToString().Should().Be(domain.ToString());
+            nameServerResourceRecord[0].NSDomainName.ToString().Should().Be(testResourceRecord.NSDomainName.ToString());
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsPointerResourceRecord_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+            Domain nsDomain = new Domain("pointer.stratis.test.com");
+
+            PointerResourceRecord testResourceRecord = new PointerResourceRecord(domain, nsDomain);
+
+            Question question = new Question(domain, RecordType.PTR);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<PointerResourceRecord> pointerResourceRecord = resourceRecords.OfType<PointerResourceRecord>().ToList();
+            pointerResourceRecord.Should().HaveCount(1);
+            pointerResourceRecord[0].Name.ToString().Should().Be(domain.ToString());
+            pointerResourceRecord[0].PointerDomainName.ToString().Should().Be(testResourceRecord.PointerDomainName.ToString());
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
+        public void WhenLoad_AndStreamContainsStartOfAuthorityResourceRecord_ThenEntryIsPopulated()
+        {
+            // Arrange
+            Domain domain = new Domain("stratis.test.com");
+            Domain masterDomain = new Domain("master.test.com");
+            Domain responsibleDomain = new Domain("responsible.test.com");
+            long serialNumber = 12121212;
+            TimeSpan refreshInterval = new TimeSpan(1111111111);
+            TimeSpan retryInterval = new TimeSpan(2222222222);
+            TimeSpan expireInterval = new TimeSpan(3333333333);
+            TimeSpan minimumTimeToLive = new TimeSpan(4444444444);
+
+            StartOfAuthorityResourceRecord testResourceRecord = 
+                new StartOfAuthorityResourceRecord(
+                    domain, 
+                    masterDomain, 
+                    responsibleDomain, 
+                    serialNumber,
+                    refreshInterval,
+                    retryInterval,
+                    expireInterval,
+                    minimumTimeToLive);
+            
+            Question question = new Question(domain, RecordType.SOA);
+
+            // Act.
+            IList<IResourceRecord> resourceRecords = this.WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(testResourceRecord, question);
+
+            // Assert.
+            resourceRecords.Should().NotBeNull();
+            resourceRecords.Should().NotBeNullOrEmpty();
+
+            IList<StartOfAuthorityResourceRecord> startOfAuthorityResourceRecord = resourceRecords.OfType<StartOfAuthorityResourceRecord>().ToList();
+            startOfAuthorityResourceRecord.Should().HaveCount(1);
+            startOfAuthorityResourceRecord[0].Name.ToString().Should().Be(domain.ToString());
+            startOfAuthorityResourceRecord[0].MasterDomainName.ToString().Should().Be(masterDomain.ToString());
+            startOfAuthorityResourceRecord[0].ResponsibleDomainName.ToString().Should().Be(responsibleDomain.ToString());
+            startOfAuthorityResourceRecord[0].SerialNumber.Should().Be(serialNumber);
+            startOfAuthorityResourceRecord[0].RefreshInterval.Should().Be(refreshInterval);
+            startOfAuthorityResourceRecord[0].RetryInterval.Should().Be(retryInterval);
+            startOfAuthorityResourceRecord[0].ExpireInterval.Should().Be(expireInterval);
+            startOfAuthorityResourceRecord[0].MinimumTimeToLive.Should().Be(minimumTimeToLive);
+        }
+
+        [Fact]
+        [Trait("DNS", "UnitTest")]
         public void WhenLoad_AndStreamContainsEntries_ThenEntriesArePopulated()
         {
             // Arrange.
@@ -51,7 +231,7 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
                 string domainName = "stratis.test.com";
                 DnsSeedMasterFile masterFile = new DnsSeedMasterFile();
 
-                IList<IPAddressResourceRecord> testResourceRecords = new List<IPAddressResourceRecord>()
+                IList<IResourceRecord> testResourceRecords = new List<IResourceRecord>()
                 {
                     new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("192.168.0.1")),
                     new IPAddressResourceRecord(new Domain(domainName), IPAddress.Parse("192.168.0.2")),
@@ -61,16 +241,18 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
                 JsonSerializer serializer = this.CreateSerializer();
 
-                using (var sw = new StreamWriter(stream))
-                using (var jsonTextWriter = new JsonTextWriter(sw))
+                using (var streamWriter = new StreamWriter(stream))
                 {
-                    serializer.Serialize(jsonTextWriter, testResourceRecords);
+                    using (var jsonTextWriter = new JsonTextWriter(streamWriter))
+                    {
+                        serializer.Serialize(jsonTextWriter, testResourceRecords);
 
-                    jsonTextWriter.Flush();
-                    stream.Seek(0, SeekOrigin.Begin);
-                    
-                    // Act.
-                    masterFile.Load(stream);
+                        jsonTextWriter.Flush();
+                        stream.Seek(0, SeekOrigin.Begin);
+
+                        // Act.
+                        masterFile.Load(stream);
+                    }
                 }
 
                 // Assert.
@@ -107,6 +289,48 @@ namespace Stratis.Bitcoin.Features.Dns.Tests
 
             // Act and assert.
             a.ShouldThrow<ArgumentNullException>().Which.Message.Should().Contain("stream");
+        }
+
+        private IList<IResourceRecord> WhenLoad_AndStreamContainsEntry_ThenEntryIsPopulated(IResourceRecord testResourceRecord, Question question)
+        {
+            // Arrange.
+            using (MemoryStream stream = new MemoryStream())
+            {
+                DnsSeedMasterFile masterFile = new DnsSeedMasterFile();
+
+                IList<IResourceRecord> testResourceRecords = new List<IResourceRecord>()
+                {
+                    testResourceRecord
+                };
+
+                JsonSerializer serializer = this.CreateSerializer();
+
+                using (var streamWriter = new StreamWriter(stream))
+                {
+                    using (var jsonTextWriter = new JsonTextWriter(streamWriter))
+                    {
+                        serializer.Serialize(jsonTextWriter, testResourceRecords);
+
+                        jsonTextWriter.Flush();
+                        stream.Seek(0, SeekOrigin.Begin);
+
+                        // Act.
+                        masterFile.Load(stream);
+                    }
+                }
+
+                // Assert.
+                return masterFile.Get(question);
+            }
+        }
+
+        private JsonSerializer CreateSerializer()
+        {
+            var settings = new Newtonsoft.Json.JsonSerializerSettings();
+            settings.Converters.Add(new ResourceRecordConverter());
+            settings.Formatting = Formatting.Indented;
+
+            return JsonSerializer.Create(settings);
         }
     }
 }
